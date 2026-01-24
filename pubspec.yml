@@ -1,0 +1,3 @@
+dependencies:
+  google_maps_flutter: ^2.3.0
+  location: ^4.4.0
