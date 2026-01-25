@@ -1,0 +1,79 @@
+name: Build iOS IPAs (unsigned)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_ios:
+    runs-on: macos-latest
+    env:
+      FLUTTER_CHANNEL: "stable"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          flutter-version: stable
+
+      - name: Show Flutter version
+        run: flutter --version
+
+      - name: Install CocoaPods
+        run: |
+          sudo gem install cocoapods -v 1.11.4 || true
+          pod --version || true
+
+      - name: Prepare customer_app
+        run: |
+          chmod +x customer_app/scripts/prepare_ios.sh || true
+          ./customer_app/scripts/prepare_ios.sh
+
+      - name: Build customer_app IPA
+        run: |
+          chmod +x customer_app/scripts/build_ipa.sh || true
+          ./customer_app/scripts/build_ipa.sh
+
+      - name: Upload customer_app IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: customer_app-ipa
+          path: customer_app/build/ipa/*.ipa
+
+      - name: Prepare driver_app
+        run: |
+          chmod +x driver_app/scripts/prepare_ios.sh || true
+          ./driver_app/scripts/prepare_ios.sh
+
+      - name: Build driver_app IPA
+        run: |
+          chmod +x driver_app/scripts/build_ipa.sh || true
+          ./driver_app/scripts/build_ipa.sh
+
+      - name: Upload driver_app IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver_app-ipa
+          path: driver_app/build/ipa/*.ipa
+
+      - name: Prepare admin_panel
+        run: |
+          chmod +x admin_panel/scripts/prepare_ios.sh || true
+          ./admin_panel/scripts/prepare_ios.sh
+
+      - name: Build admin_panel IPA
+        run: |
+          chmod +x admin_panel/scripts/build_ipa.sh || true
+          ./admin_panel/scripts/build_ipa.sh
+
+      - name: Upload admin_panel IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin_panel-ipa
+          path: admin_panel/build/ipa/*.ipa
