@@ -16,10 +16,8 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: 'stable'
-
-    - name: Go to admin panel
-      run: cd admin_panel
+        flutter-version: '3.19.6'
+        architecture: x64
 
     - name: Create Flutter platforms
       run: |
