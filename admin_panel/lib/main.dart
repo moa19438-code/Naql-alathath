@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
-import 'screens/dashboard_screen.dart';
 
-void main() {
-  runApp(const AdminPanelApp());
-}
+void main() => runApp(const AdminApp());
 
-class AdminPanelApp extends StatelessWidget {
-  const AdminPanelApp({super.key});
-
+class AdminApp extends StatelessWidget {
+  const AdminApp({super.key});
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Naql Alathath Admin',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.blueGrey),
-      home: const DashboardScreen(),
+      title: 'Naql Alathath - Admin (Demo)',
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Admin Panel (Demo)')),
+        body: Center(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('لوحة تحكم وهمية'),
+            ElevatedButton(
+              onPressed: () {},
+              child: const Text('إدارة الطلبات (وهمي)'),
+            ),
+          ],
+        )),
+      ),
     );
   }
 }
