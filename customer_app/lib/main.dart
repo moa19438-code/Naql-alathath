@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
 
-void main() {
-  runApp(const NaqlAlathathApp());
-}
+void main() => runApp(const CustomerApp());
 
-class NaqlAlathathApp extends StatelessWidget {
-  const NaqlAlathathApp({super.key});
-
+class CustomerApp extends StatelessWidget {
+  const CustomerApp({super.key});
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Naql Alathath',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.green),
-      home: const HomeScreen(),
+      title: 'Naql Alathath - Customer (Demo)',
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Customer (Demo)')),
+        body: Center(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('تطبيق العميل الوهمي'),
+            ElevatedButton(
+              onPressed: () {},
+              child: const Text('إنشاء طلب (وهمي)'),
+            ),
+          ],
+        )),
+      ),
     );
   }
 }
