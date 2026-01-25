@@ -7,17 +7,31 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Naql Alathath')),
-      body: Center(
-        child: ElevatedButton(
-          child: const Text('طلب نقل عفش'),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CreateOrderScreen()),
-            );
-          },
-        ),
+      appBar: AppBar(title: const Text('وين تبي ننقل؟')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: ListTile(
+              title: const Text('نقل عفش'),
+              subtitle: const Text('شاحنات + عمال'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CreateOrderScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+          Card(
+            child: ListTile(
+              title: const Text('شحن سريع'),
+              subtitle: const Text('أغراض خفيفة'),
+            ),
+          ),
+        ],
       ),
     );
   }
