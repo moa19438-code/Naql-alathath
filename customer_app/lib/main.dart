@@ -1,26 +1,24 @@
 import 'package:flutter/material.dart';
+import 'screens/splash_screen.dart';
 
-void main() => runApp(const CustomerApp());
+void main() {
+  runApp(const CustomerApp());
+}
 
 class CustomerApp extends StatelessWidget {
   const CustomerApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Naql Alathath - Customer (Demo)',
-      home: Scaffold(
-        appBar: AppBar(title: const Text('Customer (Demo)')),
-        body: Center(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('تطبيق العميل الوهمي'),
-            ElevatedButton(
-              onPressed: () {},
-              child: const Text('إنشاء طلب (وهمي)'),
-            ),
-          ],
-        )),
+      debugShowCheckedModeBanner: false,
+      title: 'Naql Alathath',
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        primaryColor: Colors.amber,
+        scaffoldBackgroundColor: Colors.black,
       ),
+      home: const SplashScreen(),
     );
   }
 }
