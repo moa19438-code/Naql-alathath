@@ -1,25 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:app_ui/app_ui.dart';
 
-void main() => runApp(const DriverApp());
+void main() {
+  runApp(const CustomerApp());
+}
 
-class DriverApp extends StatelessWidget {
-  const DriverApp({super.key});
+class CustomerApp extends StatelessWidget {
+  const CustomerApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Naql Alathath - Driver (Demo)',
-      home: Scaffold(
-        appBar: AppBar(title: const Text('Driver (Demo)')),
-        body: Center(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('تطبيق السائق الوهمي'),
-            ElevatedButton(
-              onPressed: () {},
-              child: const Text('عرض الطلبات (وهمي)'),
-            ),
-          ],
-        )),
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      home: const DemoHome(),
+    );
+  }
+}
+
+class DemoHome extends StatelessWidget {
+  const DemoHome({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      title: 'Naql Alathath',
+      body: Column(
+        children: [
+          const AppCard(
+            child: Text('واجهة جديدة فخمة تبدأ من هنا 👌'),
+          ),
+          const SizedBox(height: 12),
+          AppButton(
+            text: 'ابدأ طلب نقل',
+            onPressed: () {},
+            icon: Icons.local_shipping_outlined,
+          ),
+        ],
       ),
     );
   }
