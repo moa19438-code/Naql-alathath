@@ -1,0 +1,10 @@
+name: app_core
+description: Shared core utilities (networking, errors, storage) for customer & driver apps
+version: 0.0.1
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  dio: ^5.7.0
+  flutter:
+    sdk: flutter
