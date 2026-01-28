@@ -11,5 +11,14 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # البكجات المشتركة
+  app_ui:
+    path: ../packages/app_ui
+  app_core:
+    path: ../packages/app_core
+
+  # (اختياري الآن – بنحتاجها قريباً)
+  cupertino_icons: ^1.0.8
+
 flutter:
   uses-material-design: true
