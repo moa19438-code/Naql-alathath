@@ -1,0 +1,10 @@
+name: app_ui
+description: Shared UI kit (theme, widgets) for customer & driver apps
+version: 0.0.1
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  google_fonts: ^6.2.1
