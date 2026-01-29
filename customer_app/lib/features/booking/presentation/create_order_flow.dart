@@ -8,7 +8,10 @@ import 'step_schedule_page.dart';
 import 'step_service_page.dart';
 
 class CreateOrderFlow extends StatefulWidget {
-  const CreateOrderFlow({super.key});
+  final String? from;
+  final String? to;
+
+  const CreateOrderFlow({super.key, this.from, this.to});
 
   @override
   State<CreateOrderFlow> createState() => _CreateOrderFlowState();
@@ -17,6 +20,22 @@ class CreateOrderFlow extends StatefulWidget {
 class _CreateOrderFlowState extends State<CreateOrderFlow> {
   int step = 0;
   CreateOrderModel model = const CreateOrderModel();
+
+  @override
+  void initState() {
+    super.initState();
+
+    final from = widget.from?.trim();
+    final to = widget.to?.trim();
+
+    // عبّي النموذج تلقائيًا إذا وصلت بيانات من صفحة الخريطة
+    if ((from != null && from.isNotEmpty) || (to != null && to.isNotEmpty)) {
+      model = model.copyWith(
+        fromAddress: (from != null && from.isNotEmpty) ? from : null,
+        toAddress: (to != null && to.isNotEmpty) ? to : null,
+      );
+    }
+  }
 
   void _next() => setState(() => step++);
   void _back() => setState(() => step--);
