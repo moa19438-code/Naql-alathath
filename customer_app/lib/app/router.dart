@@ -1,22 +1,22 @@
 import 'package:go_router/go_router.dart';
-import '../features/home/presentation/customer_home_page.dart';
+import '../features/home/presentation/customer_map_home_page.dart';
 import '../features/booking/presentation/create_order_flow.dart';
 
-class AppRoutes {
+class CustomerRoutes {
   static const home = '/';
   static const createOrder = '/create-order';
 }
 
 GoRouter buildCustomerRouter() {
   return GoRouter(
-    initialLocation: AppRoutes.home,
+    initialLocation: CustomerRoutes.home,
     routes: [
       GoRoute(
-        path: AppRoutes.home,
-        builder: (context, state) => const CustomerHomePage(),
+        path: CustomerRoutes.home,
+        builder: (context, state) => const CustomerMapHomePage(),
       ),
       GoRoute(
-        path: AppRoutes.createOrder,
+        path: CustomerRoutes.createOrder,
         builder: (context, state) => const CreateOrderFlow(),
       ),
     ],
