@@ -1,3 +1,14 @@
 dependencies:
+  flutter:
+    sdk: flutter
+
+  app_ui:
+    path: ../packages/app_ui
+  app_core:
+    path: ../packages/app_core
+
+  go_router: ^14.6.2
+  cupertino_icons: ^1.0.8
+
   google_maps_flutter: ^2.3.0
   location: ^4.4.0
