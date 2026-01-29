@@ -16,9 +16,10 @@ GoRouter buildCustomerRouter() {
         builder: (context, state) => const CustomerMapHomePage(),
       ),
       GoRoute(
-        path: CustomerRoutes.createOrder,
-        builder: (context, state) => const CreateOrderFlow(),
-      ),
-    ],
-  );
-}
+  path: CustomerRoutes.createOrder,
+  builder: (context, state) {
+    final from = state.uri.queryParameters['from'];
+    final to = state.uri.queryParameters['to'];
+    return CreateOrderFlow(from: from, to: to);
+  },
+),
