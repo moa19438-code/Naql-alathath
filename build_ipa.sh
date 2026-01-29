@@ -1,35 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$(dirname "$0")/../" || exit 1
+# Convenience wrapper to build an unsigned IPA that can be installed via TrollStore.
+#
+# Usage:
+#   ./build_ipa.sh customer
+#   ./build_ipa.sh driver
+#
+# Optional env vars (passed through to the app scripts):
+#   BUNDLE_ID="sa.example.naql.customer" APP_DISPLAY_NAME="نقل الأثاث"
 
-if ! command -v flutter &>/dev/null; then
-  echo "Flutter not found in PATH. Exiting."
+APP="${1:-}"
+if [ -z "$APP" ] || { [ "$APP" != "customer" ] && [ "$APP" != "driver" ]; }; then
+  echo "Usage: $0 {customer|driver}"
   exit 1
 fi
 
-echo "Building iOS release (no codesign)..."
-flutter build ios --release --no-codesign
+case "$APP" in
+  customer)
+    pushd customer_app >/dev/null
+    ./scripts/prepare_ios.sh
+    ./scripts/build_ipa.sh
+    popd >/dev/null
+    ;;
+  driver)
+    pushd driver_app >/dev/null
+    ./scripts/prepare_ios.sh
+    ./scripts/build_ipa.sh
+    popd >/dev/null
+    ;;
+esac
 
-APP_PATH=$(find build/ios -type d -name "*.app" | head -n 1 || true)
-if [ -z "$APP_PATH" ]; then
-  echo "Could not find built .app in build/ios. Listing for debug:"
-  find build/ios -maxdepth 4 -print
-  exit 1
-fi
-
-IPA_DIR=build/ipa
-mkdir -p "$IPA_DIR"
-PAYLOAD_DIR=$(mktemp -d)
-mkdir -p "$PAYLOAD_DIR/Payload"
-cp -R "$APP_PATH" "$PAYLOAD_DIR/Payload/"
-
-IPA_NAME="driver_app-unsigned.ipa"
-pushd "$PAYLOAD_DIR" >/dev/null
-zip -qr "$IPA_NAME" Payload
-mv "$IPA_NAME" "$OLDPWD/$IPA_DIR/"
-popd >/dev/null
-
-rm -rf "$PAYLOAD_DIR"
-
-echo "Unsigned IPA created at: $IPA_DIR/$IPA_NAME"
+echo "Done. Look for the IPA under: <app>/build/ipa/*.ipa"
