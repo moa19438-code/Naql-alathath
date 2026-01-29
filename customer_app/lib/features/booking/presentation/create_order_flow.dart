@@ -1,0 +1,65 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import 'create_order_model.dart';
+import 'step_items_page.dart';
+import 'step_locations_page.dart';
+import 'step_schedule_page.dart';
+import 'step_service_page.dart';
+
+class CreateOrderFlow extends StatefulWidget {
+  const CreateOrderFlow({super.key});
+
+  @override
+  State<CreateOrderFlow> createState() => _CreateOrderFlowState();
+}
+
+class _CreateOrderFlowState extends State<CreateOrderFlow> {
+  int step = 0;
+  CreateOrderModel model = const CreateOrderModel();
+
+  void _next() => setState(() => step++);
+  void _back() => setState(() => step--);
+  void _close() => context.pop();
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (step) {
+      0 => StepServicePage(
+          selected: model.serviceType,
+          onSelect: (v) => setState(() => model = model.copyWith(serviceType: v)),
+          onClose: _close,
+          onNext: model.isStep1Valid ? _next : null,
+        ),
+      1 => StepLocationsPage(
+          initialFrom: model.fromAddress ?? '',
+          initialTo: model.toAddress ?? '',
+          onClose: _close,
+          onBack: _back,
+          onNext: (from, to) {
+            final tmp = model.copyWith(fromAddress: from, toAddress: to);
+            setState(() => model = tmp);
+            if (tmp.isStep2Valid) _next();
+          },
+        ),
+      2 => StepItemsPage(
+          initialNotes: model.itemsNotes ?? '',
+          onClose: _close,
+          onBack: _back,
+          onNext: (notes) {
+            setState(() => model = model.copyWith(itemsNotes: notes));
+            _next();
+          },
+        ),
+      _ => StepSchedulePage(
+          model: model,
+          onClose: _close,
+          onBack: _back,
+          onConfirm: (dt) {
+            setState(() => model = model.copyWith(scheduledAt: dt));
+            context.pop(); // مؤقتًا
+          },
+        ),
+    };
+  }
+}

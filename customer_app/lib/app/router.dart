@@ -1,6 +1,6 @@
 import 'package:go_router/go_router.dart';
 import '../features/home/presentation/customer_home_page.dart';
-import '../features/booking/presentation/create_order_page.dart';
+import '../features/booking/presentation/create_order_flow.dart';
 
 class AppRoutes {
   static const home = '/';
@@ -17,7 +17,7 @@ GoRouter buildCustomerRouter() {
       ),
       GoRoute(
         path: AppRoutes.createOrder,
-        builder: (context, state) => const CreateOrderPage(),
+        builder: (context, state) => const CreateOrderFlow(),
       ),
     ],
   );
