@@ -1,0 +1,113 @@
+name: Build iOS IPAs
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.6'
+          architecture: x64
+
+      - name: Build Admin Panel
+        run: |
+          cd admin_panel
+          flutter create .
+          # Fix CocoaPods platform (required)
+          if [ -f ios/Podfile ]; then
+            if grep -q "^platform :ios" ios/Podfile; then
+              sed -i '' "s/^platform :ios, .*/platform :ios, '14.0'/" ios/Podfile
+            else
+              sed -i '' "1s/^/platform :ios, '14.0'\n\n/" ios/Podfile
+            fi
+          fi
+
+          flutter pub get
+          flutter build ios --release --no-codesign
+          rm -rf Payload
+          mkdir Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          rm -f AdminPanel.ipa
+          zip -r AdminPanel.ipa Payload
+          rm -rf Payload
+          cd ..
+
+      -       - name: Build Customer App
+        run: |
+          cd customer_app
+          flutter create .
+
+          # Fix CocoaPods platform (required)
+          if [ -f ios/Podfile ]; then
+            if grep -q "^platform :ios" ios/Podfile; then
+              sed -i '' "s/^platform :ios, .*/platform :ios, '14.0'/" ios/Podfile
+            else
+              sed -i '' "1s/^/platform :ios, '14.0'\n\n/" ios/Podfile
+            fi
+          fi
+
+          # Force iOS deployment target in Xcode project too
+          if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
+            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g" ios/Runner.xcodeproj/project.pbxproj
+          fi
+
+          flutter pub get
+          flutter build ios --release --no-codesign
+          rm -rf Payload
+          mkdir Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          rm -f CustomerApp.ipa
+          zip -r CustomerApp.ipa Payload
+          rm -rf Payload
+          cd ..
+
+          flutter pub get
+          flutter build ios --release --no-codesign
+          rm -rf Payload
+          mkdir Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          rm -f CustomerApp.ipa
+          zip -r CustomerApp.ipa Payload
+          rm -rf Payload
+          cd ..
+
+      - name: Build Driver App
+        run: |
+          cd driver_app
+          flutter create .
+          # Fix CocoaPods platform (required)
+          if [ -f ios/Podfile ]; then
+            if grep -q "^platform :ios" ios/Podfile; then
+              sed -i '' "s/^platform :ios, .*/platform :ios, '14.0'/" ios/Podfile
+            else
+              sed -i '' "1s/^/platform :ios, '14.0'\n\n/" ios/Podfile
+            fi
+          fi
+
+          flutter pub get
+          flutter build ios --release --no-codesign
+          rm -rf Payload
+          mkdir Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          rm -f DriverApp.ipa
+          zip -r DriverApp.ipa Payload
+          rm -rf Payload
+          cd ..
+
+      - name: Upload IPAs
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOS-IPAs
+          path: |
+            admin_panel/AdminPanel.ipa
+            customer_app/CustomerApp.ipa
+            driver_app/DriverApp.ipa
