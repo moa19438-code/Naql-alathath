@@ -22,6 +22,7 @@ jobs:
         run: |
           cd admin_panel
           flutter create .
+
           # Fix CocoaPods platform (required)
           if [ -f ios/Podfile ]; then
             if grep -q "^platform :ios" ios/Podfile; then
@@ -31,8 +32,14 @@ jobs:
             fi
           fi
 
+          # Force iOS deployment target in Xcode project too
+          if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
+            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g" ios/Runner.xcodeproj/project.pbxproj
+          fi
+
           flutter pub get
           flutter build ios --release --no-codesign
+
           rm -rf Payload
           mkdir Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
@@ -41,7 +48,7 @@ jobs:
           rm -rf Payload
           cd ..
 
-      -       - name: Build Customer App
+      - name: Build Customer App
         run: |
           cd customer_app
           flutter create .
@@ -62,16 +69,7 @@ jobs:
 
           flutter pub get
           flutter build ios --release --no-codesign
-          rm -rf Payload
-          mkdir Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          rm -f CustomerApp.ipa
-          zip -r CustomerApp.ipa Payload
-          rm -rf Payload
-          cd ..
 
-          flutter pub get
-          flutter build ios --release --no-codesign
           rm -rf Payload
           mkdir Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
@@ -84,6 +82,7 @@ jobs:
         run: |
           cd driver_app
           flutter create .
+
           # Fix CocoaPods platform (required)
           if [ -f ios/Podfile ]; then
             if grep -q "^platform :ios" ios/Podfile; then
@@ -93,8 +92,14 @@ jobs:
             fi
           fi
 
+          # Force iOS deployment target in Xcode project too
+          if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
+            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g" ios/Runner.xcodeproj/project.pbxproj
+          fi
+
           flutter pub get
           flutter build ios --release --no-codesign
+
           rm -rf Payload
           mkdir Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
