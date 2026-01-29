@@ -25,9 +25,9 @@ jobs:
           # Fix CocoaPods platform (required)
           if [ -f ios/Podfile ]; then
             if grep -q "^platform :ios" ios/Podfile; then
-              sed -i '' "s/^platform :ios, .*/platform :ios, '13.0'/" ios/Podfile
+              sed -i '' "s/^platform :ios, .*/platform :ios, '14.0'/" ios/Podfile
             else
-              sed -i '' "1s/^/platform :ios, '13.0'\n\n/" ios/Podfile
+              sed -i '' "1s/^/platform :ios, '14.0'\n\n/" ios/Podfile
             fi
           fi
 
@@ -41,18 +41,34 @@ jobs:
           rm -rf Payload
           cd ..
 
-      - name: Build Customer App
+      -       - name: Build Customer App
         run: |
           cd customer_app
           flutter create .
+
           # Fix CocoaPods platform (required)
           if [ -f ios/Podfile ]; then
             if grep -q "^platform :ios" ios/Podfile; then
-              sed -i '' "s/^platform :ios, .*/platform :ios, '13.0'/" ios/Podfile
+              sed -i '' "s/^platform :ios, .*/platform :ios, '14.0'/" ios/Podfile
             else
-              sed -i '' "1s/^/platform :ios, '13.0'\n\n/" ios/Podfile
+              sed -i '' "1s/^/platform :ios, '14.0'\n\n/" ios/Podfile
             fi
           fi
+
+          # Force iOS deployment target in Xcode project too
+          if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
+            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g" ios/Runner.xcodeproj/project.pbxproj
+          fi
+
+          flutter pub get
+          flutter build ios --release --no-codesign
+          rm -rf Payload
+          mkdir Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          rm -f CustomerApp.ipa
+          zip -r CustomerApp.ipa Payload
+          rm -rf Payload
+          cd ..
 
           flutter pub get
           flutter build ios --release --no-codesign
@@ -71,9 +87,9 @@ jobs:
           # Fix CocoaPods platform (required)
           if [ -f ios/Podfile ]; then
             if grep -q "^platform :ios" ios/Podfile; then
-              sed -i '' "s/^platform :ios, .*/platform :ios, '13.0'/" ios/Podfile
+              sed -i '' "s/^platform :ios, .*/platform :ios, '14.0'/" ios/Podfile
             else
-              sed -i '' "1s/^/platform :ios, '13.0'\n\n/" ios/Podfile
+              sed -i '' "1s/^/platform :ios, '14.0'\n\n/" ios/Podfile
             fi
           fi
 
