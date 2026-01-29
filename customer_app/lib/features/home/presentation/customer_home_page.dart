@@ -18,8 +18,7 @@ class CustomerMapHomePage extends StatefulWidget {
 class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
   GoogleMapController? _mapController;
 
-  // Riyadh default
-  static const LatLng _defaultCenter = LatLng(24.7136, 46.6753);
+  static const LatLng _defaultCenter = LatLng(24.7136, 46.6753); // Riyadh
   static const CameraPosition _defaultCamera =
       CameraPosition(target: _defaultCenter, zoom: 12);
 
@@ -27,8 +26,12 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
   StreamSubscription<loc.LocationData>? _sub;
 
   LatLng? _myLatLng;
-  String? _locationHint;
   bool _locLoading = false;
+  String? _locHint;
+
+  // UI state
+  String? fromLabel;
+  String? toLabel;
 
   @override
   void initState() {
@@ -46,7 +49,7 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
   Future<void> _initLocation() async {
     setState(() {
       _locLoading = true;
-      _locationHint = null;
+      _locHint = null;
     });
 
     try {
@@ -55,7 +58,7 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
         final turnedOn = await _location.requestService();
         if (!turnedOn) {
           setState(() {
-            _locationHint = 'فعّل خدمة الموقع لعرض موقعك على الخريطة.';
+            _locHint = 'فعّل خدمة الموقع لعرض موقعك.';
             _locLoading = false;
           });
           return;
@@ -69,7 +72,7 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
       if (perm != loc.PermissionStatus.granted &&
           perm != loc.PermissionStatus.grantedLimited) {
         setState(() {
-          _locationHint = 'تم رفض إذن الموقع.';
+          _locHint = 'تم رفض إذن الموقع.';
           _locLoading = false;
         });
         return;
@@ -85,19 +88,18 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
         _animateTo(p);
       } else {
         setState(() {
-          _locationHint = 'تعذر قراءة الموقع الحالي.';
+          _locHint = 'تعذر قراءة الموقع الحالي.';
           _locLoading = false;
         });
       }
 
-      // تحديثات لاحقة (اختياري)
       _sub = _location.onLocationChanged.listen((e) {
         if (e.latitude == null || e.longitude == null) return;
         setState(() => _myLatLng = LatLng(e.latitude!, e.longitude!));
       });
     } catch (_) {
       setState(() {
-        _locationHint = 'حدث خطأ أثناء تشغيل الموقع.';
+        _locHint = 'حدث خطأ أثناء تشغيل الموقع.';
         _locLoading = false;
       });
     }
@@ -111,10 +113,28 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
     );
   }
 
+  Future<void> _openPickupDropoffSheet() async {
+    final result = await showModalBottomSheet<_PickupDropoffResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PickupDropoffSheet(
+        currentFrom: fromLabel,
+        currentTo: toLabel,
+      ),
+    );
+
+    if (result == null) return;
+
+    setState(() {
+      fromLabel = result.from;
+      toLabel = result.to;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final t = Theme.of(context).textTheme;
 
     final markers = <Marker>{
       if (_myLatLng != null)
@@ -122,18 +142,18 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
           markerId: const MarkerId('me'),
           position: _myLatLng!,
           icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueAzure),
+            BitmapDescriptor.hueAzure,
+          ),
         ),
     };
 
     return Scaffold(
-      // نخلي الخريطة خلف، وUI فوقها
       body: Stack(
         children: [
           Positioned.fill(
             child: GoogleMap(
               initialCameraPosition: _defaultCamera,
-              myLocationEnabled: false, // نخليه false ونحط marker بنفسنا
+              myLocationEnabled: false,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
               markers: markers,
@@ -141,81 +161,79 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
             ),
           ),
 
-          // Top bar فوق الخريطة (فخم)
+          // Top overlay
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
-              child: Row(
+              child: Column(
                 children: [
-                  // Card خلفية للعنوان/الموقع
-                  Expanded(
-                    child: AppCard(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.sm,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _TopSearchBar(
+                          subtitle: _locLoading
+                              ? 'جارٍ تحديد موقعك...'
+                              : (_locHint ?? 'جاهز لطلب نقل'),
+                          onTap: _openPickupDropoffSheet,
+                        ),
                       ),
+                      const SizedBox(width: 10),
+                      AppCard(
+                        padding: const EdgeInsets.all(6),
+                        child: IconButton(
+                          onPressed: () {},
+                          icon: const Icon(Icons.notifications_none),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (_locHint != null)
+                    AppCard(
                       child: Row(
                         children: [
-                          Icon(Icons.my_location, color: cs.primary),
+                          Icon(Icons.info_outline, color: cs.onSurfaceVariant),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('موقعك الحالي', style: t.titleMedium),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _myLatLng != null
-                                      ? 'جاهز لطلب نقل'
-                                      : (_locLoading
-                                          ? 'جارٍ تحديد موقعك...'
-                                          : (_locationHint ??
-                                              'الرياض (افتراضي)')),
-                                  style: t.bodySmall
-                                      ?.copyWith(color: cs.onSurfaceVariant),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
+                            child: Text(
+                              _locHint!,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: cs.onSurfaceVariant),
                             ),
                           ),
-                          IconButton(
+                          TextButton(
                             onPressed: _initLocation,
-                            icon: const Icon(Icons.refresh),
+                            child: const Text('إعادة'),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  // Notifications
-                  AppCard(
-                    padding: const EdgeInsets.all(6),
-                    child: IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.notifications_none),
-                    ),
-                  ),
                 ],
               ),
             ),
           ),
 
-          // زر “تحديد موقعي” (floating)
+          // Floating GPS
           Positioned(
             right: AppSpacing.md,
-            bottom: 240,
+            bottom: 250,
             child: AppCard(
               padding: const EdgeInsets.all(6),
               child: IconButton(
-                onPressed: _myLatLng == null ? _initLocation : () => _animateTo(_myLatLng!),
+                onPressed:
+                    _myLatLng == null ? _initLocation : () => _animateTo(_myLatLng!),
                 icon: const Icon(Icons.gps_fixed),
               ),
             ),
           ),
 
-          // Bottom Sheet فخم (مثل أوبر)
-          _BottomSheet(
+          // Bottom sheet (Uber-like)
+          _HomeBottomSheet(
+            fromLabel: fromLabel,
+            toLabel: toLabel,
+            onSetFromTo: _openPickupDropoffSheet,
             onCreateOrder: () => context.go(CustomerRoutes.createOrder),
           ),
         ],
@@ -224,9 +242,67 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
   }
 }
 
-class _BottomSheet extends StatelessWidget {
+class _TopSearchBar extends StatelessWidget {
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _TopSearchBar({
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadii.lg),
+      onTap: onTap,
+      child: AppCard(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search, color: cs.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('إلى أين؟', style: t.titleMedium),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: t.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeBottomSheet extends StatelessWidget {
+  final String? fromLabel;
+  final String? toLabel;
+  final VoidCallback onSetFromTo;
   final VoidCallback onCreateOrder;
-  const _BottomSheet({required this.onCreateOrder});
+
+  const _HomeBottomSheet({
+    required this.fromLabel,
+    required this.toLabel,
+    required this.onSetFromTo,
+    required this.onCreateOrder,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -235,8 +311,8 @@ class _BottomSheet extends StatelessWidget {
 
     return DraggableScrollableSheet(
       initialChildSize: 0.28,
-      minChildSize: 0.20,
-      maxChildSize: 0.60,
+      minChildSize: 0.22,
+      maxChildSize: 0.62,
       builder: (context, controller) {
         return Container(
           decoration: BoxDecoration(
@@ -261,22 +337,25 @@ class _BottomSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-
-              Text('إلى أين؟', style: t.titleLarge),
+              Text('طلب جديد', style: t.titleLarge),
               const SizedBox(height: 10),
 
               AppCard(
-                child: Row(
+                child: Column(
                   children: [
-                    Icon(Icons.search, color: cs.onSurfaceVariant),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'ابحث عن موقع الاستلام/التسليم (قريبًا)',
-                        style: t.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                      ),
+                    _FromToRow(
+                      title: 'من',
+                      value: fromLabel ?? 'اختر موقع الاستلام',
+                      icon: Icons.my_location,
+                      onTap: onSetFromTo,
                     ),
-                    const Icon(Icons.chevron_right),
+                    const Divider(height: 18),
+                    _FromToRow(
+                      title: 'إلى',
+                      value: toLabel ?? 'اختر موقع التسليم',
+                      icon: Icons.location_on_outlined,
+                      onTap: onSetFromTo,
+                    ),
                   ],
                 ),
               ),
@@ -290,15 +369,71 @@ class _BottomSheet extends StatelessWidget {
               ),
 
               const SizedBox(height: 12),
-
               Text('الخدمات', style: t.titleLarge),
               const SizedBox(height: 10),
-
               const _ServiceRow(),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _FromToRow extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _FromToRow({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadii.lg),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              height: 38,
+              width: 38,
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: cs.onPrimaryContainer, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: t.labelLarge),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: t.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -367,6 +502,168 @@ class _MiniServiceCard extends StatelessWidget {
             Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// ---------------------------
+/// Bottom sheet to set From/To
+/// ---------------------------
+class _PickupDropoffResult {
+  final String? from;
+  final String? to;
+  const _PickupDropoffResult({this.from, this.to});
+}
+
+class _PickupDropoffSheet extends StatefulWidget {
+  final String? currentFrom;
+  final String? currentTo;
+
+  const _PickupDropoffSheet({
+    required this.currentFrom,
+    required this.currentTo,
+  });
+
+  @override
+  State<_PickupDropoffSheet> createState() => _PickupDropoffSheetState();
+}
+
+class _PickupDropoffSheetState extends State<_PickupDropoffSheet> {
+  late final TextEditingController fromC =
+      TextEditingController(text: widget.currentFrom ?? '');
+  late final TextEditingController toC =
+      TextEditingController(text: widget.currentTo ?? '');
+
+  @override
+  void dispose() {
+    fromC.dispose();
+    toC.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: AppSpacing.md,
+          right: AppSpacing.md,
+          bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.md,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(AppRadii.xl),
+            border: Border.all(color: AppColors.border),
+          ),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Expanded(child: Text('تحديد المسار')),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              AppTextField(
+                label: 'من (Pickup)',
+                hint: 'مثال: حي النرجس',
+                controller: fromC,
+                prefixIcon: const Icon(Icons.my_location),
+              ),
+              const SizedBox(height: 10),
+              AppTextField(
+                label: 'إلى (Dropoff)',
+                hint: 'مثال: حي الياسمين',
+                controller: toC,
+                prefixIcon: const Icon(Icons.location_on_outlined),
+              ),
+              const SizedBox(height: 12),
+
+              // Saved / Recent (تجريبي)
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('اقتراحات سريعة'),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        _Chip(
+                          text: 'المنزل',
+                          onTap: () => setState(() => toC.text = 'المنزل'),
+                        ),
+                        _Chip(
+                          text: 'العمل',
+                          onTap: () => setState(() => toC.text = 'العمل'),
+                        ),
+                        _Chip(
+                          text: 'حي النرجس',
+                          onTap: () => setState(() => fromC.text = 'حي النرجس'),
+                        ),
+                        _Chip(
+                          text: 'حي الياسمين',
+                          onTap: () => setState(() => toC.text = 'حي الياسمين'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+              AppButton(
+                text: 'تأكيد',
+                icon: Icons.check,
+                onPressed: () {
+                  Navigator.pop(
+                    context,
+                    _PickupDropoffResult(
+                      from: fromC.text.trim().isEmpty ? null : fromC.text.trim(),
+                      to: toC.text.trim().isEmpty ? null : toC.text.trim(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String text;
+  final VoidCallback onTap;
+
+  const _Chip({required this.text, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: cs.surfaceVariant.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Text(text),
       ),
     );
   }
