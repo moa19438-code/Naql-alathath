@@ -28,7 +28,6 @@ class _CreateOrderFlowState extends State<CreateOrderFlow> {
     final from = widget.from?.trim();
     final to = widget.to?.trim();
 
-    // عبّي النموذج تلقائيًا إذا وصلت بيانات من صفحة الخريطة
     if ((from != null && from.isNotEmpty) || (to != null && to.isNotEmpty)) {
       model = model.copyWith(
         fromAddress: (from != null && from.isNotEmpty) ? from : null,
