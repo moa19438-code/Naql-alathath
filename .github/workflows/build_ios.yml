@@ -53,6 +53,16 @@ jobs:
           cd customer_app
           flutter create .
 
+          # Add Location permission strings to Info.plist (prevents crash)
+          PLIST="ios/Runner/Info.plist"
+          if [ -f "$PLIST" ]; then
+            /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string نحتاج موقعك لعرض الخريطة وتحسين تجربة الطلب." "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :NSLocationWhenInUseUsageDescription نحتاج موقعك لعرض الخريطة وتحسين تجربة الطلب." "$PLIST"
+
+            /usr/libexec/PlistBuddy -c "Add :NSLocationAlwaysAndWhenInUseUsageDescription string نحتاج موقعك أثناء تنفيذ الطلب والتتبع." "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :NSLocationAlwaysAndWhenInUseUsageDescription نحتاج موقعك أثناء تنفيذ الطلب والتتبع." "$PLIST"
+          fi
+
           # Fix CocoaPods platform (required)
           if [ -f ios/Podfile ]; then
             if grep -q "^platform :ios" ios/Podfile; then
