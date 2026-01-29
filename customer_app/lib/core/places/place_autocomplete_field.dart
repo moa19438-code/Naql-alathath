@@ -26,10 +26,18 @@ class PlaceAutocompleteField extends StatefulWidget {
 }
 
 class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
-  late final TextEditingController _c = TextEditingController(text: widget.initialText);
+  late final TextEditingController _c =
+      TextEditingController(text: widget.initialText);
+
   Timer? _debounce;
   bool _loading = false;
   List<PlacesSuggestion> _items = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _c.addListener(() => _onChanged(_c.text));
+  }
 
   @override
   void dispose() {
@@ -41,6 +49,7 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
   void _onChanged(String v) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 250), () async {
+      if (!mounted) return;
       setState(() => _loading = true);
       final r = await widget.api.autocomplete(input: v);
       if (!mounted) return;
@@ -68,7 +77,10 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
                   child: SizedBox(
                     height: 16,
                     width: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(cs.primary)),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(cs.primary),
+                    ),
                   ),
                 )
               : (_c.text.isEmpty
@@ -96,12 +108,21 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
                     });
                   },
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     child: Row(
                       children: [
                         Icon(Icons.place_outlined, color: cs.onSurfaceVariant),
                         const SizedBox(width: 10),
-                        Expanded(child: Text(s.description, maxLines: 2, overflow: TextOverflow.ellipsis)),
+                        Expanded(
+                          child: Text(
+                            s.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -111,11 +132,5 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
           ),
       ],
     );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _c.addListener(() => _onChanged(_c.text));
   }
 }
