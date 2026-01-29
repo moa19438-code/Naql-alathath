@@ -35,11 +35,12 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
   String? fromLabel;
   String? toLabel;
 
-  @override
-  void initState() {
-    super.initState();
-    _initLocation();
-  }
+@override
+void initState() {
+  super.initState();
+  // لا تطلب الموقع عند فتح التطبيق
+  // _initLocation();
+}
 
   @override
   void dispose() {
