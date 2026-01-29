@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import '../../../core/places/google_places_api.dart';
-import '../../../core/places/place_autocomplete_field.dart';
 import 'package:app_ui/app_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +7,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart' as loc;
 
 import '../../../app/router.dart';
+import '../../../core/places/google_places_api.dart';
+import '../../../core/places/place_autocomplete_field.dart';
 
 class CustomerMapHomePage extends StatefulWidget {
   const CustomerMapHomePage({super.key});
@@ -150,7 +150,9 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
         Marker(
           markerId: const MarkerId('me'),
           position: _myLatLng!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
         ),
     };
 
@@ -186,8 +188,10 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('إلى أين؟',
-                                      style: Theme.of(context).textTheme.titleMedium),
+                                  Text(
+                                    'إلى أين؟',
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
                                   const SizedBox(height: 2),
                                   Text(
                                     _locLoading
@@ -382,12 +386,9 @@ class _FromToSheetState extends State<_FromToSheet> {
   late final TextEditingController toC =
       TextEditingController(text: widget.to ?? '');
 
-  final places = GooglePlacesApi(apiKey: 'AIzaSyBcZ1lyH1hUfV9MRvq-C2xhr4DlfJ5w49o');
+  // ضع المفتاح أنت (ولا ترفعه للريبو العام)
+  final places = GooglePlacesApi(apiKey: 'YOUR_GOOGLE_MAPS_API_KEY');
 
-  @override
-  void dispose() {
-    ...
-  }
   @override
   void dispose() {
     fromC.dispose();
@@ -426,20 +427,29 @@ class _FromToSheetState extends State<_FromToSheet> {
                 ],
               ),
               const SizedBox(height: 10),
-              AppTextField(
+
+              PlaceAutocompleteField(
                 label: 'من (Pickup)',
-                hint: 'مثال: حي النرجس',
-                controller: fromC,
-                prefixIcon: const Icon(Icons.my_location),
+                hint: 'ابحث عن موقع الاستلام',
+                icon: Icons.my_location,
+                api: places,
+                initialText: fromC.text,
+                onPick: (v) => setState(() => fromC.text = v),
               ),
+
               const SizedBox(height: 10),
-              AppTextField(
+
+              PlaceAutocompleteField(
                 label: 'إلى (Dropoff)',
-                hint: 'مثال: حي الياسمين',
-                controller: toC,
-                prefixIcon: const Icon(Icons.location_on_outlined),
+                hint: 'ابحث عن موقع التسليم',
+                icon: Icons.location_on_outlined,
+                api: places,
+                initialText: toC.text,
+                onPick: (v) => setState(() => toC.text = v),
               ),
+
               const SizedBox(height: 12),
+
               AppButton(
                 text: 'تأكيد',
                 icon: Icons.check,
