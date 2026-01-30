@@ -1,99 +1,479 @@
+import 'dart:async';
+
+import 'package:app_ui/app_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart' as loc;
 
 import '../../../app/router.dart';
-import 'create_order_model.dart';
-import 'step_items_page.dart';
-import 'step_locations_page.dart';
-import 'step_schedule_page.dart';
-import 'step_service_page.dart';
+import '../../../config/keys.dart';
+import '../../../core/places/google_places_api.dart';
+import '../../../core/places/place_autocomplete_field.dart';
 
-class CreateOrderFlow extends StatefulWidget {
-  final String? from;
-  final String? to;
-
-  const CreateOrderFlow({super.key, this.from, this.to});
+class CustomerMapHomePage extends StatefulWidget {
+  const CustomerMapHomePage({super.key});
 
   @override
-  State<CreateOrderFlow> createState() => _CreateOrderFlowState();
+  State<CustomerMapHomePage> createState() => _CustomerMapHomePageState();
 }
 
-class _CreateOrderFlowState extends State<CreateOrderFlow> {
-  int step = 0;
-  CreateOrderModel model = const CreateOrderModel();
+class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
+  GoogleMapController? _mapController;
+
+  static const LatLng _defaultCenter = LatLng(24.7136, 46.6753);
+  static const CameraPosition _defaultCamera =
+      CameraPosition(target: _defaultCenter, zoom: 12);
+
+  final loc.Location _location = loc.Location();
+  StreamSubscription<loc.LocationData>? _sub;
+
+  LatLng? _myLatLng;
+  bool _locLoading = false;
+  String? _locHint;
+
+  String? fromLabel;
+  String? toLabel;
 
   @override
   void initState() {
     super.initState();
+    // ✅ لا تطلب الموقع عند فتح التطبيق
+    // _initLocation();
+  }
 
-    final from = widget.from?.trim();
-    final to = widget.to?.trim();
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _mapController?.dispose();
+    super.dispose();
+  }
 
-    if ((from != null && from.isNotEmpty) || (to != null && to.isNotEmpty)) {
-      model = model.copyWith(
-        fromAddress: (from != null && from.isNotEmpty) ? from : null,
-        toAddress: (to != null && to.isNotEmpty) ? to : null,
-      );
+  Future<void> _initLocation() async {
+    setState(() {
+      _locLoading = true;
+      _locHint = null;
+    });
+
+    try {
+      final enabled = await _location.serviceEnabled();
+      if (!enabled) {
+        final turnedOn = await _location.requestService();
+        if (!turnedOn) {
+          setState(() {
+            _locHint = 'فعّل خدمة الموقع لعرض موقعك.';
+            _locLoading = false;
+          });
+          return;
+        }
+      }
+
+      var perm = await _location.hasPermission();
+      if (perm == loc.PermissionStatus.denied) {
+        perm = await _location.requestPermission();
+      }
+      if (perm != loc.PermissionStatus.granted &&
+          perm != loc.PermissionStatus.grantedLimited) {
+        setState(() {
+          _locHint = 'تم رفض إذن الموقع.';
+          _locLoading = false;
+        });
+        return;
+      }
+
+      final current = await _location.getLocation();
+      if (current.latitude != null && current.longitude != null) {
+        final p = LatLng(current.latitude!, current.longitude!);
+        setState(() {
+          _myLatLng = p;
+          _locLoading = false;
+        });
+        await _animateTo(p);
+      } else {
+        setState(() {
+          _locHint = 'تعذر قراءة الموقع الحالي.';
+          _locLoading = false;
+        });
+      }
+
+      _sub?.cancel();
+      _sub = _location.onLocationChanged.listen((e) {
+        if (e.latitude == null || e.longitude == null) return;
+        setState(() => _myLatLng = LatLng(e.latitude!, e.longitude!));
+      });
+    } catch (_) {
+      setState(() {
+        _locHint = 'حدث خطأ أثناء تشغيل الموقع.';
+        _locLoading = false;
+      });
     }
   }
 
-  void _next() => setState(() => step++);
-  void _back() => setState(() => step--);
+  Future<void> _animateTo(LatLng p) async {
+    final c = _mapController;
+    if (c == null) return;
+    await c.animateCamera(
+      CameraUpdate.newCameraPosition(CameraPosition(target: p, zoom: 15)),
+    );
+  }
 
-  void _close() {
-    // ✅ إذا ما فيه صفحة قبلها (دخلت بـ go) ما راح يشتغل pop
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go(CustomerRoutes.home);
-    }
+  void _startOrderFlow([String? serviceType]) {
+    // نبدأ Wizard من خطوة اختيار الخدمة
+    context.go(CustomerRoutes.createOrder);
+  }
+
+  Future<void> _openFromToSheet() async {
+    final r = await showModalBottomSheet<_FromToResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _FromToSheet(from: fromLabel, to: toLabel),
+    );
+
+    if (r == null) return;
+    setState(() {
+      fromLabel = r.from;
+      toLabel = r.to;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return switch (step) {
-      0 => StepServicePage(
-          selected: model.serviceType,
-          onSelect: (v) =>
-              setState(() => model = model.copyWith(serviceType: v)),
-          onClose: _close,
-          onNext: model.isStep1Valid ? _next : null,
-        ),
-      1 => StepLocationsPage(
-          initialFrom: model.fromAddress ?? '',
-          initialTo: model.toAddress ?? '',
-          onClose: _close,
-          onBack: _back,
-          onNext: (from, to) {
-            final tmp = model.copyWith(fromAddress: from, toAddress: to);
-            setState(() => model = tmp);
-            if (tmp.isStep2Valid) _next();
-          },
-        ),
-      2 => StepItemsPage(
-          initialNotes: model.itemsNotes ?? '',
-          onClose: _close,
-          onBack: _back,
-          onNext: (notes) {
-            setState(() => model = model.copyWith(itemsNotes: notes));
-            _next();
-          },
-        ),
-      _ => StepSchedulePage(
-          model: model,
-          onClose: _close,
-          onBack: _back,
-          onConfirm: (dt) {
-            setState(() => model = model.copyWith(scheduledAt: dt));
+    final cs = Theme.of(context).colorScheme;
 
-            // ✅ مؤقتًا نرجع للهوم بدل pop (لأنه ممكن ما يشتغل مع go)
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(CustomerRoutes.home);
-            }
-          },
+    final markers = <Marker>{
+      if (_myLatLng != null)
+        Marker(
+          markerId: const MarkerId('me'),
+          position: _myLatLng!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
         ),
     };
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: GoogleMap(
+              initialCameraPosition: _defaultCamera,
+              zoomControlsEnabled: false,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
+              markers: markers,
+              onMapCreated: (c) => _mapController = c,
+            ),
+          ),
+
+          // Top Search Bar (فخم)
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(AppRadii.lg),
+                      onTap: _openFromToSheet,
+                      child: AppCard(
+                        child: Row(
+                          children: [
+                            Icon(Icons.search, color: cs.primary),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('إلى أين؟',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _locLoading
+                                        ? 'جارٍ تحديد موقعك...'
+                                        : (_locHint ?? 'اختر من/إلى لطلب نقل'),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(color: cs.onSurfaceVariant),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  AppCard(
+                    padding: const EdgeInsets.all(6),
+                    child: IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.notifications_none),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // GPS button
+          Positioned(
+            right: AppSpacing.md,
+            bottom: 240,
+            child: AppCard(
+              padding: const EdgeInsets.all(6),
+              child: IconButton(
+                onPressed: _myLatLng == null
+                    ? _initLocation
+                    : () => _animateTo(_myLatLng!),
+                icon: const Icon(Icons.gps_fixed),
+              ),
+            ),
+          ),
+
+          // ✅ Bottom sheet: خدمات + زر بدء الطلب (بدون خانات بدائية)
+          DraggableScrollableSheet(
+            initialChildSize: 0.22,
+            minChildSize: 0.18,
+            maxChildSize: 0.55,
+            builder: (context, controller) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppRadii.xl),
+                  ),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: ListView(
+                  controller: controller,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  children: [
+                    Center(
+                      child: Container(
+                        height: 5,
+                        width: 44,
+                        decoration: BoxDecoration(
+                          color: cs.onSurfaceVariant.withOpacity(0.35),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('اختر نوع الخدمة',
+                        style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 10),
+
+                    _ServiceTile(
+                      title: 'نقل شقة',
+                      subtitle: 'نقل كامل مع عمالة',
+                      icon: Icons.apartment_outlined,
+                      onTap: () => _startOrderFlow('apartment'),
+                    ),
+                    const SizedBox(height: 10),
+                    _ServiceTile(
+                      title: 'نقل مكتب',
+                      subtitle: 'نقل أثاث مكتبي',
+                      icon: Icons.business_outlined,
+                      onTap: () => _startOrderFlow('office'),
+                    ),
+                    const SizedBox(height: 10),
+                    _ServiceTile(
+                      title: 'قطعة واحدة',
+                      subtitle: 'كرسي/ثلاجة/غسالة…',
+                      icon: Icons.chair_alt_outlined,
+                      onTap: () => _startOrderFlow('single'),
+                    ),
+                    const SizedBox(height: 10),
+                    _ServiceTile(
+                      title: 'تغليف فقط',
+                      subtitle: 'بدون نقل',
+                      icon: Icons.inventory_2_outlined,
+                      onTap: () => _startOrderFlow('packing'),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    AppButton(
+                      text: 'ابدأ طلب جديد',
+                      icon: Icons.local_shipping_outlined,
+                      onPressed: () => context.go(CustomerRoutes.createOrder),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ServiceTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadii.lg),
+      onTap: onTap,
+      child: AppCard(
+        child: Row(
+          children: [
+            Container(
+              height: 44,
+              width: 44,
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: cs.onPrimaryContainer),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FromToResult {
+  final String? from;
+  final String? to;
+  const _FromToResult({this.from, this.to});
+}
+
+class _FromToSheet extends StatefulWidget {
+  final String? from;
+  final String? to;
+
+  const _FromToSheet({this.from, this.to});
+
+  @override
+  State<_FromToSheet> createState() => _FromToSheetState();
+}
+
+class _FromToSheetState extends State<_FromToSheet> {
+  late final TextEditingController fromC =
+      TextEditingController(text: widget.from ?? '');
+  late final TextEditingController toC =
+      TextEditingController(text: widget.to ?? '');
+
+  final places = GooglePlacesApi(apiKey: AppKeys.googleMapsApiKey);
+
+  @override
+  void dispose() {
+    fromC.dispose();
+    toC.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: AppSpacing.md,
+          right: AppSpacing.md,
+          bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.md,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(AppRadii.xl),
+            border: Border.all(color: AppColors.border),
+          ),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Expanded(child: Text('إلى أين؟')),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              PlaceAutocompleteField(
+                label: 'من (Pickup)',
+                hint: 'ابحث عن موقع الاستلام',
+                icon: Icons.my_location,
+                api: places,
+                initialText: fromC.text,
+                onPick: (v) => setState(() => fromC.text = v),
+              ),
+              const SizedBox(height: 10),
+              PlaceAutocompleteField(
+                label: 'إلى (Dropoff)',
+                hint: 'ابحث عن موقع التسليم',
+                icon: Icons.location_on_outlined,
+                api: places,
+                initialText: toC.text,
+                onPick: (v) => setState(() => toC.text = v),
+              ),
+              const SizedBox(height: 12),
+              AppButton(
+                text: 'تأكيد',
+                icon: Icons.check,
+                onPressed: () {
+                  final f = fromC.text.trim();
+                  final t = toC.text.trim();
+                  Navigator.pop(
+                    context,
+                    _FromToResult(
+                      from: f.isEmpty ? null : f,
+                      to: t.isEmpty ? null : t,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
