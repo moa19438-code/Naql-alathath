@@ -26,15 +26,16 @@ jobs:
 
           # Force iOS 14 in Podfile
           if [ -f ios/Podfile ]; then
-            python3 -c "import pathlib,re; p=pathlib.Path('ios/Podfile'); t=p.read_text('utf-8'); \
-t = re.sub(r'^\s*platform :ios,.*$', \"platform :ios, '14.0'\", t, flags=re.M) if re.search(r'^\s*platform :ios,', t, flags=re.M) else \"platform :ios, '14.0'\\n\\n\"+t; \
-p.write_text(t,'utf-8')"
+            if grep -qE '^\s*platform :ios' ios/Podfile; then
+              sed -i '' -E "s/^\s*platform :ios.*/platform :ios, '14.0'/" ios/Podfile
+            else
+              printf "platform :ios, '14.0'\n\n" | cat - ios/Podfile > ios/Podfile.tmp && mv ios/Podfile.tmp ios/Podfile
+            fi
           fi
 
           # Force iOS 14 in Xcode project
           if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
-            python3 -c "import pathlib,re; p=pathlib.Path('ios/Runner.xcodeproj/project.pbxproj'); t=p.read_text('utf-8'); \
-t=re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET = 14.0;', t); p.write_text(t,'utf-8')"
+            sed -i '' -E "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g" ios/Runner.xcodeproj/project.pbxproj
           fi
 
           flutter pub get
@@ -46,6 +47,35 @@ t=re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET =
           set -euo pipefail
           cd customer_app
           flutter create .
+
+          # Read Google Maps API key from lib/config/keys.dart
+          MAPS_KEY="$(grep -oE "googleMapsApiKey\s*=\s*'[^']+'" lib/config/keys.dart | head -n 1 | sed -E "s/.*'([^']+)'.*/\1/")"
+          if [ -z "$MAPS_KEY" ]; then
+            echo "ERROR: Could not read googleMapsApiKey from lib/config/keys.dart"
+            exit 1
+          fi
+          echo "Google Maps key loaded."
+
+          # Patch AppDelegate.swift or AppDelegate.m (Google Maps iOS needs provideAPIKey)
+          if [ -f ios/Runner/AppDelegate.swift ]; then
+            # add import GoogleMaps (after import Flutter) if missing
+            if ! grep -q "import GoogleMaps" ios/Runner/AppDelegate.swift; then
+              perl -i -pe 's/^import Flutter\s*$/import Flutter\nimport GoogleMaps/m' ios/Runner/AppDelegate.swift
+            fi
+            # add GMSServices.provideAPIKey(...) after GeneratedPluginRegistrant.register if missing
+            if ! grep -q "GMSServices.provideAPIKey" ios/Runner/AppDelegate.swift; then
+              perl -i -pe "s/(GeneratedPluginRegistrant\\.register\\(with:\\s*self\\)\\s*)/\\1GMSServices.provideAPIKey(\"$MAPS_KEY\")\\n/m" ios/Runner/AppDelegate.swift
+            fi
+          elif [ -f ios/Runner/AppDelegate.m ]; then
+            if ! grep -q "<GoogleMaps/GoogleMaps.h>" ios/Runner/AppDelegate.m; then
+              perl -i -pe 'print qq(#import <GoogleMaps/GoogleMaps.h>\n) if $.==1' ios/Runner/AppDelegate.m
+            fi
+            if ! grep -q "\\[GMSServices provideAPIKey" ios/Runner/AppDelegate.m; then
+              perl -i -pe "s/(\\[GeneratedPluginRegistrant registerWithRegistry:self\\];)/[GMSServices provideAPIKey:@\"$MAPS_KEY\"];\\n\\1/" ios/Runner/AppDelegate.m
+            fi
+          else
+            echo "WARNING: No AppDelegate file found to patch."
+          fi
 
           # Add Location permission strings to Info.plist (prevents crash when requesting location)
           PLIST="ios/Runner/Info.plist"
@@ -60,17 +90,18 @@ t=re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET =
             /usr/libexec/PlistBuddy -c "Set :NSLocationAlwaysUsageDescription نحتاج موقعك أثناء تنفيذ الطلب والتتبع." "$PLIST"
           fi
 
-          # Force iOS 14 in Podfile
+          # Force iOS 14 in Podfile (google_maps_flutter_ios requires it)
           if [ -f ios/Podfile ]; then
-            python3 -c "import pathlib,re; p=pathlib.Path('ios/Podfile'); t=p.read_text('utf-8'); \
-t = re.sub(r'^\s*platform :ios,.*$', \"platform :ios, '14.0'\", t, flags=re.M) if re.search(r'^\s*platform :ios,', t, flags=re.M) else \"platform :ios, '14.0'\\n\\n\"+t; \
-p.write_text(t,'utf-8')"
+            if grep -qE '^\s*platform :ios' ios/Podfile; then
+              sed -i '' -E "s/^\s*platform :ios.*/platform :ios, '14.0'/" ios/Podfile
+            else
+              printf "platform :ios, '14.0'\n\n" | cat - ios/Podfile > ios/Podfile.tmp && mv ios/Podfile.tmp ios/Podfile
+            fi
           fi
 
           # Force iOS 14 in Xcode project
           if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
-            python3 -c "import pathlib,re; p=pathlib.Path('ios/Runner.xcodeproj/project.pbxproj'); t=p.read_text('utf-8'); \
-t=re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET = 14.0;', t); p.write_text(t,'utf-8')"
+            sed -i '' -E "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g" ios/Runner.xcodeproj/project.pbxproj
           fi
 
           flutter pub get
@@ -85,26 +116,27 @@ t=re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET =
 
           # Force iOS 14 in Podfile
           if [ -f ios/Podfile ]; then
-            python3 -c "import pathlib,re; p=pathlib.Path('ios/Podfile'); t=p.read_text('utf-8'); \
-t = re.sub(r'^\s*platform :ios,.*$', \"platform :ios, '14.0'\", t, flags=re.M) if re.search(r'^\s*platform :ios,', t, flags=re.M) else \"platform :ios, '14.0'\\n\\n\"+t; \
-p.write_text(t,'utf-8')"
+            if grep -qE '^\s*platform :ios' ios/Podfile; then
+              sed -i '' -E "s/^\s*platform :ios.*/platform :ios, '14.0'/" ios/Podfile
+            else
+              printf "platform :ios, '14.0'\n\n" | cat - ios/Podfile > ios/Podfile.tmp && mv ios/Podfile.tmp ios/Podfile
+            fi
           fi
 
           # Force iOS 14 in Xcode project
           if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
-            python3 -c "import pathlib,re; p=pathlib.Path('ios/Runner.xcodeproj/project.pbxproj'); t=p.read_text('utf-8'); \
-t=re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET = 14.0;', t); p.write_text(t,'utf-8')"
+            sed -i '' -E "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g" ios/Runner.xcodeproj/project.pbxproj
           fi
 
           flutter pub get
           flutter build ios --release --no-codesign
           cd ..
 
-      - name: Upload iOS build outputs
+      - name: Upload iOS build outputs (Runner.app)
         uses: actions/upload-artifact@v4
         with:
           name: iOS-build-outputs
           path: |
+            admin_panel/build/ios/iphoneos/Runner.app
             customer_app/build/ios/iphoneos/Runner.app
             driver_app/build/ios/iphoneos/Runner.app
-            admin_panel/build/ios/iphoneos/Runner.app
