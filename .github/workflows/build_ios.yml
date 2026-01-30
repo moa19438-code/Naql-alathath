@@ -18,117 +18,34 @@ jobs:
           flutter-version: '3.19.6'
           architecture: x64
 
-      # -----------------------
-      # Admin Panel (build only)
-      # -----------------------
       - name: Build Admin Panel (iOS no-codesign)
         run: |
           set -euo pipefail
           cd admin_panel
           flutter create .
 
-          # Force iOS 14
+          # Force iOS 14 in Podfile
           if [ -f ios/Podfile ]; then
-            python3 - <<'PY'
-import pathlib, re
-p = pathlib.Path("ios/Podfile")
-t = p.read_text(encoding="utf-8")
-if re.search(r'^\s*platform :ios,', t, flags=re.M):
-  t = re.sub(r'^\s*platform :ios,.*$', "platform :ios, '14.0'", t, flags=re.M)
-else:
-  t = "platform :ios, '14.0'\n\n" + t
-p.write_text(t, encoding="utf-8")
-PY
+            python3 -c "import pathlib,re; p=pathlib.Path('ios/Podfile'); t=p.read_text('utf-8'); \
+t = re.sub(r'^\s*platform :ios,.*$', \"platform :ios, '14.0'\", t, flags=re.M) if re.search(r'^\s*platform :ios,', t, flags=re.M) else \"platform :ios, '14.0'\\n\\n\"+t; \
+p.write_text(t,'utf-8')"
           fi
 
+          # Force iOS 14 in Xcode project
           if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
-            python3 - <<'PY'
-import pathlib, re
-p = pathlib.Path("ios/Runner.xcodeproj/project.pbxproj")
-t = p.read_text(encoding="utf-8")
-t = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET = 14.0;', t)
-p.write_text(t, encoding="utf-8")
-PY
+            python3 -c "import pathlib,re; p=pathlib.Path('ios/Runner.xcodeproj/project.pbxproj'); t=p.read_text('utf-8'); \
+t=re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET = 14.0;', t); p.write_text(t,'utf-8')"
           fi
 
           flutter pub get
           flutter build ios --release --no-codesign
           cd ..
 
-      # -----------------------
-      # Customer App (fix crash)
-      # -----------------------
       - name: Build Customer App (iOS no-codesign)
         run: |
           set -euo pipefail
           cd customer_app
           flutter create .
-
-          # Read key from lib/config/keys.dart
-          MAPS_KEY="$(python3 - <<'PY'
-import re, pathlib
-t = pathlib.Path("lib/config/keys.dart").read_text(encoding="utf-8")
-m = re.search(r"googleMapsApiKey\s*=\s*'([^']+)'", t)
-print(m.group(1).strip() if m else "")
-PY
-          )"
-          if [ -z "$MAPS_KEY" ]; then
-            echo "ERROR: Could not read googleMapsApiKey from lib/config/keys.dart"
-            exit 1
-          fi
-          echo "Google Maps key loaded."
-
-          # Patch AppDelegate.swift or AppDelegate.m to provide API key
-          python3 - <<PY
-import pathlib, re, os
-
-key = os.environ.get("MAPS_KEY")
-swift = pathlib.Path("ios/Runner/AppDelegate.swift")
-objc  = pathlib.Path("ios/Runner/AppDelegate.m")
-
-if swift.exists():
-    t = swift.read_text(encoding="utf-8")
-
-    # Ensure import GoogleMaps
-    if "import GoogleMaps" not in t:
-        # Insert after import Flutter
-        t = re.sub(r"(import Flutter\\s*)", r"\\1import GoogleMaps\\n", t, count=1)
-
-    # Ensure provideAPIKey exists
-    if "GMSServices.provideAPIKey" not in t:
-        # Insert after GeneratedPluginRegistrant.register(...)
-        t = re.sub(
-            r"(GeneratedPluginRegistrant\\.register\\(with:\\s*self\\)\\s*)",
-            r"\\1GMSServices.provideAPIKey(\\\"" + key + "\\\")\\n",
-            t,
-            count=1
-        )
-
-    swift.write_text(t, encoding="utf-8")
-    print("Patched AppDelegate.swift")
-
-elif objc.exists():
-    t = objc.read_text(encoding="utf-8")
-
-    # Ensure import
-    if "#import <GoogleMaps/GoogleMaps.h>" not in t:
-        t = "#import <GoogleMaps/GoogleMaps.h>\\n" + t
-
-    # Ensure provideAPIKey line exists
-    if "[GMSServices provideAPIKey" not in t:
-        t = re.sub(
-            r"(\\[GeneratedPluginRegistrant registerWithRegistry:self\\];)",
-            r"[GMSServices provideAPIKey:@\\\"" + key + "\\\"];\\n\\1",
-            t,
-            count=1
-        )
-
-    objc.write_text(t, encoding="utf-8")
-    print("Patched AppDelegate.m")
-else:
-    print("WARNING: No AppDelegate file found to patch.")
-PY
-          MAPS_KEY="$MAPS_KEY"
 
           # Add Location permission strings to Info.plist (prevents crash when requesting location)
           PLIST="ios/Runner/Info.plist"
@@ -143,72 +60,46 @@ PY
             /usr/libexec/PlistBuddy -c "Set :NSLocationAlwaysUsageDescription نحتاج موقعك أثناء تنفيذ الطلب والتتبع." "$PLIST"
           fi
 
-          # Force iOS 14 (google_maps_flutter_ios requires it)
+          # Force iOS 14 in Podfile
           if [ -f ios/Podfile ]; then
-            python3 - <<'PY'
-import pathlib, re
-p = pathlib.Path("ios/Podfile")
-t = p.read_text(encoding="utf-8")
-if re.search(r'^\s*platform :ios,', t, flags=re.M):
-  t = re.sub(r'^\s*platform :ios,.*$', "platform :ios, '14.0'", t, flags=re.M)
-else:
-  t = "platform :ios, '14.0'\n\n" + t
-p.write_text(t, encoding="utf-8")
-PY
+            python3 -c "import pathlib,re; p=pathlib.Path('ios/Podfile'); t=p.read_text('utf-8'); \
+t = re.sub(r'^\s*platform :ios,.*$', \"platform :ios, '14.0'\", t, flags=re.M) if re.search(r'^\s*platform :ios,', t, flags=re.M) else \"platform :ios, '14.0'\\n\\n\"+t; \
+p.write_text(t,'utf-8')"
           fi
 
+          # Force iOS 14 in Xcode project
           if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
-            python3 - <<'PY'
-import pathlib, re
-p = pathlib.Path("ios/Runner.xcodeproj/project.pbxproj")
-t = p.read_text(encoding="utf-8")
-t = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET = 14.0;', t)
-p.write_text(t, encoding="utf-8")
-PY
+            python3 -c "import pathlib,re; p=pathlib.Path('ios/Runner.xcodeproj/project.pbxproj'); t=p.read_text('utf-8'); \
+t=re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET = 14.0;', t); p.write_text(t,'utf-8')"
           fi
 
           flutter pub get
           flutter build ios --release --no-codesign
           cd ..
 
-      # -----------------------
-      # Driver App (build only)
-      # -----------------------
       - name: Build Driver App (iOS no-codesign)
         run: |
           set -euo pipefail
           cd driver_app
           flutter create .
 
-          # Force iOS 14
+          # Force iOS 14 in Podfile
           if [ -f ios/Podfile ]; then
-            python3 - <<'PY'
-import pathlib, re
-p = pathlib.Path("ios/Podfile")
-t = p.read_text(encoding="utf-8")
-if re.search(r'^\s*platform :ios,', t, flags=re.M):
-  t = re.sub(r'^\s*platform :ios,.*$', "platform :ios, '14.0'", t, flags=re.M)
-else:
-  t = "platform :ios, '14.0'\n\n" + t
-p.write_text(t, encoding="utf-8")
-PY
+            python3 -c "import pathlib,re; p=pathlib.Path('ios/Podfile'); t=p.read_text('utf-8'); \
+t = re.sub(r'^\s*platform :ios,.*$', \"platform :ios, '14.0'\", t, flags=re.M) if re.search(r'^\s*platform :ios,', t, flags=re.M) else \"platform :ios, '14.0'\\n\\n\"+t; \
+p.write_text(t,'utf-8')"
           fi
 
+          # Force iOS 14 in Xcode project
           if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
-            python3 - <<'PY'
-import pathlib, re
-p = pathlib.Path("ios/Runner.xcodeproj/project.pbxproj")
-t = p.read_text(encoding="utf-8")
-t = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET = 14.0;', t)
-p.write_text(t, encoding="utf-8")
-PY
+            python3 -c "import pathlib,re; p=pathlib.Path('ios/Runner.xcodeproj/project.pbxproj'); t=p.read_text('utf-8'); \
+t=re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;', 'IPHONEOS_DEPLOYMENT_TARGET = 14.0;', t); p.write_text(t,'utf-8')"
           fi
 
           flutter pub get
           flutter build ios --release --no-codesign
           cd ..
 
-      # Upload build outputs (Runner.app)
       - name: Upload iOS build outputs
         uses: actions/upload-artifact@v4
         with:
