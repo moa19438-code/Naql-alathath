@@ -6,8 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart' as loc;
 
-import '../../../config/keys.dart';
 import '../../../app/router.dart';
+import '../../../config/keys.dart';
 import '../../../core/places/google_places_api.dart';
 import '../../../core/places/place_autocomplete_field.dart';
 
@@ -35,12 +35,12 @@ class _CustomerMapHomePageState extends State<CustomerMapHomePage> {
   String? fromLabel;
   String? toLabel;
 
-@override
-void initState() {
-  super.initState();
-  // لا تطلب الموقع عند فتح التطبيق
-  // _initLocation();
-}
+  @override
+  void initState() {
+    super.initState();
+    // ✅ مهم: لا تطلب الموقع عند فتح التطبيق (يمنع crash)
+    // _initLocation();
+  }
 
   @override
   void dispose() {
@@ -88,7 +88,7 @@ void initState() {
           _myLatLng = p;
           _locLoading = false;
         });
-        _animateTo(p);
+        await _animateTo(p);
       } else {
         setState(() {
           _locHint = 'تعذر قراءة الموقع الحالي.';
@@ -96,6 +96,7 @@ void initState() {
         });
       }
 
+      _sub?.cancel();
       _sub = _location.onLocationChanged.listen((e) {
         if (e.latitude == null || e.longitude == null) return;
         setState(() => _myLatLng = LatLng(e.latitude!, e.longitude!));
@@ -112,7 +113,9 @@ void initState() {
     final c = _mapController;
     if (c == null) return;
     await c.animateCamera(
-      CameraUpdate.newCameraPosition(CameraPosition(target: p, zoom: 15)),
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: p, zoom: 15),
+      ),
     );
   }
 
@@ -164,9 +167,9 @@ void initState() {
           Positioned.fill(
             child: GoogleMap(
               initialCameraPosition: _defaultCamera,
-              myLocationEnabled: false,
-              myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
               markers: markers,
               onMapCreated: (c) => _mapController = c,
             ),
@@ -192,7 +195,8 @@ void initState() {
                                 children: [
                                   Text(
                                     'إلى أين؟',
-                                    style: Theme.of(context).textTheme.titleMedium,
+                                    style:
+                                        Theme.of(context).textTheme.titleMedium,
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
@@ -234,8 +238,9 @@ void initState() {
             child: AppCard(
               padding: const EdgeInsets.all(6),
               child: IconButton(
-                onPressed:
-                    _myLatLng == null ? _initLocation : () => _animateTo(_myLatLng!),
+                onPressed: _myLatLng == null
+                    ? _initLocation
+                    : () => _animateTo(_myLatLng!),
                 icon: const Icon(Icons.gps_fixed),
               ),
             ),
@@ -269,7 +274,6 @@ void initState() {
                       ),
                     ),
                     const SizedBox(height: 12),
-
                     AppCard(
                       child: Column(
                         children: [
@@ -289,9 +293,7 @@ void initState() {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 12),
-
                     AppButton(
                       text: 'اطلب نقل الآن',
                       icon: Icons.local_shipping_outlined,
@@ -388,8 +390,8 @@ class _FromToSheetState extends State<_FromToSheet> {
   late final TextEditingController toC =
       TextEditingController(text: widget.to ?? '');
 
-  // ضع المفتاح أنت (ولا ترفعه للريبو العام)
-  final places = GooglePlacesApi(apiKey: 'YOUR_GOOGLE_MAPS_API_KEY');
+  // ✅ استخدم مفتاحك من ملف keys.dart
+  final places = GooglePlacesApi(apiKey: AppKeys.googleMapsApiKey);
 
   @override
   void dispose() {
@@ -429,7 +431,6 @@ class _FromToSheetState extends State<_FromToSheet> {
                 ],
               ),
               const SizedBox(height: 10),
-
               PlaceAutocompleteField(
                 label: 'من (Pickup)',
                 hint: 'ابحث عن موقع الاستلام',
@@ -438,9 +439,7 @@ class _FromToSheetState extends State<_FromToSheet> {
                 initialText: fromC.text,
                 onPick: (v) => setState(() => fromC.text = v),
               ),
-
               const SizedBox(height: 10),
-
               PlaceAutocompleteField(
                 label: 'إلى (Dropoff)',
                 hint: 'ابحث عن موقع التسليم',
@@ -449,9 +448,7 @@ class _FromToSheetState extends State<_FromToSheet> {
                 initialText: toC.text,
                 onPick: (v) => setState(() => toC.text = v),
               ),
-
               const SizedBox(height: 12),
-
               AppButton(
                 text: 'تأكيد',
                 icon: Icons.check,
