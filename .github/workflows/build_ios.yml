@@ -20,6 +20,7 @@ jobs:
 
       - name: Build Admin Panel
         run: |
+          set -euo pipefail
           cd admin_panel
           flutter create .
 
@@ -50,6 +51,7 @@ jobs:
 
       - name: Build Customer App
         run: |
+          set -euo pipefail
           cd customer_app
           flutter create .
 
@@ -61,6 +63,9 @@ jobs:
 
             /usr/libexec/PlistBuddy -c "Add :NSLocationAlwaysAndWhenInUseUsageDescription string نحتاج موقعك أثناء تنفيذ الطلب والتتبع." "$PLIST" 2>/dev/null || \
             /usr/libexec/PlistBuddy -c "Set :NSLocationAlwaysAndWhenInUseUsageDescription نحتاج موقعك أثناء تنفيذ الطلب والتتبع." "$PLIST"
+
+            /usr/libexec/PlistBuddy -c "Add :NSLocationAlwaysUsageDescription string نحتاج موقعك أثناء تنفيذ الطلب والتتبع." "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :NSLocationAlwaysUsageDescription نحتاج موقعك أثناء تنفيذ الطلب والتتبع." "$PLIST"
           fi
 
           # Fix CocoaPods platform (required)
@@ -90,6 +95,7 @@ jobs:
 
       - name: Build Driver App
         run: |
+          set -euo pipefail
           cd driver_app
           flutter create .
 
