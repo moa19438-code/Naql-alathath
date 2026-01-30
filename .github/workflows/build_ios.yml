@@ -1,4 +1,4 @@
-name: Build iOS (No Codesign)
+name: Build iOS IPA (No Codesign - TrollStore)
 
 on:
   push:
@@ -18,6 +18,7 @@ jobs:
           flutter-version: '3.19.6'
           architecture: x64
 
+      # -------------------- Admin Panel --------------------
       - name: Build Admin Panel (iOS no-codesign)
         run: |
           set -euo pipefail
@@ -42,6 +43,21 @@ jobs:
           flutter build ios --release --no-codesign
           cd ..
 
+      - name: Pack Admin Panel IPA (TrollStore)
+        run: |
+          set -euo pipefail
+          APP_PATH="admin_panel/build/ios/iphoneos/Runner.app"
+          OUT_DIR="dist/admin_panel"
+          mkdir -p "$OUT_DIR/Payload"
+          rm -rf "$OUT_DIR/Payload/Runner.app"
+          cp -R "$APP_PATH" "$OUT_DIR/Payload/Runner.app"
+
+          # Ensure no macOS junk files
+          rm -rf "$OUT_DIR/Payload/Runner.app/_CodeSignature" || true
+
+          (cd "$OUT_DIR" && /usr/bin/zip -qry "admin_panel.ipa" "Payload")
+
+      # -------------------- Customer App --------------------
       - name: Build Customer App (iOS no-codesign)
         run: |
           set -euo pipefail
@@ -58,11 +74,9 @@ jobs:
 
           # Patch AppDelegate.swift or AppDelegate.m (Google Maps iOS needs provideAPIKey)
           if [ -f ios/Runner/AppDelegate.swift ]; then
-            # add import GoogleMaps (after import Flutter) if missing
             if ! grep -q "import GoogleMaps" ios/Runner/AppDelegate.swift; then
               perl -i -pe 's/^import Flutter\s*$/import Flutter\nimport GoogleMaps/m' ios/Runner/AppDelegate.swift
             fi
-            # add GMSServices.provideAPIKey(...) after GeneratedPluginRegistrant.register if missing
             if ! grep -q "GMSServices.provideAPIKey" ios/Runner/AppDelegate.swift; then
               perl -i -pe "s/(GeneratedPluginRegistrant\\.register\\(with:\\s*self\\)\\s*)/\\1GMSServices.provideAPIKey(\"$MAPS_KEY\")\\n/m" ios/Runner/AppDelegate.swift
             fi
@@ -77,7 +91,7 @@ jobs:
             echo "WARNING: No AppDelegate file found to patch."
           fi
 
-          # Add Location permission strings to Info.plist (prevents crash when requesting location)
+          # Add Location permission strings to Info.plist
           PLIST="ios/Runner/Info.plist"
           if [ -f "$PLIST" ]; then
             /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string نحتاج موقعك لعرض الخريطة وتحسين تجربة الطلب." "$PLIST" 2>/dev/null || \
@@ -90,7 +104,7 @@ jobs:
             /usr/libexec/PlistBuddy -c "Set :NSLocationAlwaysUsageDescription نحتاج موقعك أثناء تنفيذ الطلب والتتبع." "$PLIST"
           fi
 
-          # Force iOS 14 in Podfile (google_maps_flutter_ios requires it)
+          # Force iOS 14 in Podfile
           if [ -f ios/Podfile ]; then
             if grep -qE '^\s*platform :ios' ios/Podfile; then
               sed -i '' -E "s/^\s*platform :ios.*/platform :ios, '14.0'/" ios/Podfile
@@ -108,6 +122,18 @@ jobs:
           flutter build ios --release --no-codesign
           cd ..
 
+      - name: Pack Customer App IPA (TrollStore)
+        run: |
+          set -euo pipefail
+          APP_PATH="customer_app/build/ios/iphoneos/Runner.app"
+          OUT_DIR="dist/customer_app"
+          mkdir -p "$OUT_DIR/Payload"
+          rm -rf "$OUT_DIR/Payload/Runner.app"
+          cp -R "$APP_PATH" "$OUT_DIR/Payload/Runner.app"
+          rm -rf "$OUT_DIR/Payload/Runner.app/_CodeSignature" || true
+          (cd "$OUT_DIR" && /usr/bin/zip -qry "customer_app.ipa" "Payload")
+
+      # -------------------- Driver App --------------------
       - name: Build Driver App (iOS no-codesign)
         run: |
           set -euo pipefail
@@ -132,11 +158,23 @@ jobs:
           flutter build ios --release --no-codesign
           cd ..
 
-      - name: Upload iOS build outputs (Runner.app)
+      - name: Pack Driver App IPA (TrollStore)
+        run: |
+          set -euo pipefail
+          APP_PATH="driver_app/build/ios/iphoneos/Runner.app"
+          OUT_DIR="dist/driver_app"
+          mkdir -p "$OUT_DIR/Payload"
+          rm -rf "$OUT_DIR/Payload/Runner.app"
+          cp -R "$APP_PATH" "$OUT_DIR/Payload/Runner.app"
+          rm -rf "$OUT_DIR/Payload/Runner.app/_CodeSignature" || true
+          (cd "$OUT_DIR" && /usr/bin/zip -qry "driver_app.ipa" "Payload")
+
+      # -------------------- Upload IPA artifacts --------------------
+      - name: Upload IPA files
         uses: actions/upload-artifact@v4
         with:
-          name: iOS-build-outputs
+          name: iOS-IPAs-TrollStore
           path: |
-            admin_panel/build/ios/iphoneos/Runner.app
-            customer_app/build/ios/iphoneos/Runner.app
-            driver_app/build/ios/iphoneos/Runner.app
+            dist/admin_panel/admin_panel.ipa
+            dist/customer_app/customer_app.ipa
+            dist/driver_app/driver_app.ipa
