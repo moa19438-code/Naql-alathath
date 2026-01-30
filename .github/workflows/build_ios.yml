@@ -55,7 +55,56 @@ jobs:
           cd customer_app
           flutter create .
 
+          # -----------------------------
+          # Read Google Maps API key from Dart file
+          # -----------------------------
+          MAPS_KEY="$(sed -n "s/.*googleMapsApiKey *= *'\(.*\)'.*/\1/p" lib/config/keys.dart | head -n 1)"
+          if [ -z "${MAPS_KEY}" ]; then
+            echo "ERROR: Could not read googleMapsApiKey from lib/config/keys.dart"
+            exit 1
+          fi
+          echo "Google Maps key loaded."
+
+          # -----------------------------
+          # Add Google Maps key to AppDelegate (prevents crash)
+          # Supports Swift and ObjC templates
+          # -----------------------------
+          APPDELEGATE_SWIFT="ios/Runner/AppDelegate.swift"
+          APPDELEGATE_OBJC="ios/Runner/AppDelegate.m"
+
+          if [ -f "$APPDELEGATE_SWIFT" ]; then
+            # Ensure import GoogleMaps
+            if ! grep -q "import GoogleMaps" "$APPDELEGATE_SWIFT"; then
+              # Add after Flutter import line
+              sed -i '' "/import Flutter/a\\
+import GoogleMaps
+" "$APPDELEGATE_SWIFT"
+            fi
+
+            # Ensure provideAPIKey is called before plugin registration
+            if ! grep -q "GMSServices.provideAPIKey" "$APPDELEGATE_SWIFT"; then
+              sed -i '' "/GeneratedPluginRegistrant.register/a\\
+    GMSServices.provideAPIKey(\"${MAPS_KEY}\")
+" "$APPDELEGATE_SWIFT"
+            fi
+          elif [ -f "$APPDELEGATE_OBJC" ]; then
+            # ObjC template
+            if ! grep -q "#import <GoogleMaps/GoogleMaps.h>" "$APPDELEGATE_OBJC"; then
+              sed -i '' "1s|^|#import <GoogleMaps/GoogleMaps.h>\\
+|" "$APPDELEGATE_OBJC"
+            fi
+            if ! grep -q "\[GMSServices provideAPIKey" "$APPDELEGATE_OBJC"; then
+              sed -i '' "/\[GeneratedPluginRegistrant registerWithRegistry:self\];/i\\
+  [GMSServices provideAPIKey:@\"${MAPS_KEY}\"];
+" "$APPDELEGATE_OBJC"
+            fi
+          else
+            echo "WARNING: No AppDelegate found to patch."
+          fi
+
+          # -----------------------------
           # Add Location permission strings to Info.plist (prevents crash)
+          # -----------------------------
           PLIST="ios/Runner/Info.plist"
           if [ -f "$PLIST" ]; then
             /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string نحتاج موقعك لعرض الخريطة وتحسين تجربة الطلب." "$PLIST" 2>/dev/null || \
@@ -68,7 +117,9 @@ jobs:
             /usr/libexec/PlistBuddy -c "Set :NSLocationAlwaysUsageDescription نحتاج موقعك أثناء تنفيذ الطلب والتتبع." "$PLIST"
           fi
 
-          # Fix CocoaPods platform (required)
+          # -----------------------------
+          # Force iOS 14 (google_maps_flutter_ios requires it)
+          # -----------------------------
           if [ -f ios/Podfile ]; then
             if grep -q "^platform :ios" ios/Podfile; then
               sed -i '' "s/^platform :ios, .*/platform :ios, '14.0'/" ios/Podfile
@@ -77,7 +128,6 @@ jobs:
             fi
           fi
 
-          # Force iOS deployment target in Xcode project too
           if [ -f ios/Runner.xcodeproj/project.pbxproj ]; then
             sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g" ios/Runner.xcodeproj/project.pbxproj
           fi
